@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Rekap Penjualan & Stok Otomatis Apotek</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS untuk Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF & AutoTable untuk PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="max-w-7xl mx-auto p-4 md:p-6">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 mb-6 border-b border-emerald-600 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-emerald-700">Apotek Ayu Farma</h1>
+                <p class="text-sm text-slate-500">Sistem Manajemen Stok Otomatis, Transaksi, & Laporan Keuangan</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center gap-2">
+                    📊 Download Excel
+                </button>
+                <button onclick="exportPDF()" class="bg-slate-800 hover:bg-slate-900 text-white font-medium text-sm py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center gap-2">
+                    📄 Download PDF
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigasi Tab -->
+        <div class="flex border-b border-slate-200 mb-6">
+            <button onclick="switchTab('stok')" id="btn-tab-stok" class="py-2.5 px-6 font-semibold text-sm border-b-2 border-emerald-600 text-emerald-700 transition-colors">
+                📦 Manajemen Stok Gudang
+            </button>
+            <button onclick="switchTab('transaksi')" id="btn-tab-transaksi" class="py-2.5 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors">
+                🛒 Input Penjualan Kasir
+            </button>
+            <button onclick="switchTab('riwayat')" id="btn-tab-riwayat" class="py-2.5 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors">
+                📋 Riwayat & Laporan
+            </button>
+        </div>
+
+        <!-- TAB 1: MANAJEMEN STOK GUDANG -->
+        <div id="tab-stok" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-6 bg-emerald-600 rounded-full inline-block"></span>
+                    Tambah Stok / Restock Obat di Gudang
+                </h2>
+                <form id="form-stok" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Nama Obat</label>
+                        <input type="text" id="stok-nama" required placeholder="Contoh: Paracetamol 500mg" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Jumlah Tambahan / Stok</label>
+                        <input type="number" id="stok-jumlah" min="1" required placeholder="10" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Harga Modal Satuan (Rp)</label>
+                        <input type="number" id="stok-modal" min="0" required placeholder="0" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Harga Jual Satuan (Rp)</label>
+                        <input type="number" id="stok-jual" min="0" required placeholder="0" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div class="md:col-span-5 flex justify-end">
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-2.5 px-6 rounded-lg transition-colors shadow-sm">
+                            Simpan / Perbarui Stok Gudang
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabel Daftar Stok Aktif -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800">Daftar Stok Obat di Gudang</h2>
+                    <span class="text-xs text-slate-400">Jika nama obat sama, sistem otomatis menambah jumlah stoknya</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 uppercase text-xs border-b border-slate-200">
+                            <tr>
+                                <th class="p-4">Nama Obat</th>
+                                <th class="p-4 text-right">Harga Modal</th>
+                                <th class="p-4 text-right">Harga Jual</th>
+                                <th class="p-4 text-center">Sisa Stok Gudang</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-stok-body" class="divide-y divide-slate-100">
+                            <!-- Diisi JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-stok" class="p-12 text-center text-slate-400 text-sm hidden">
+                    Belum ada data stok obat di gudang. Silakan tambahkan melalui form di atas.
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: INPUT PENJUALAN KASIR -->
+        <div id="tab-transaksi" class="space-y-6 hidden">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-6 bg-emerald-600 rounded-full inline-block"></span>
+                    Kasir Penjualan Obat (Stok Otomatis Berkurang / Jadi 0 Jika Habis)
+                </h2>
+                <form id="form-transaksi" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Pilih Obat dari Gudang</label>
+                        <select id="pilih-obat" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none" onchange="updateInfoObat()">
+                            <option value="">-- Pilih Obat --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Jumlah Beli (Qty)</label>
+                        <input type="number" id="transaksi-qty" min="1" required placeholder="0" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                            Proses Penjualan & Potong Stok
+                        </button>
+                    </div>
+                </form>
+                <div id="info-stok-tersedia" class="mt-4 text-xs text-slate-500 font-medium">
+                    💡 Tips: Pilih obat untuk melihat sisa stok real-time di gudang.
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: RIWAYAT & LAPORAN -->
+        <div id="tab-riwayat" class="space-y-6 hidden">
+            <!-- KPI Ringkasan -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Penjualan Kotor</div>
+                    <div id="kpi-penjualan" class="text-xl font-bold text-slate-700">Rp 0</div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Modal Obat Terjual (HPP)</div>
+                    <div id="kpi-modal" class="text-xl font-bold text-amber-600">Rp 0</div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Keuntungan Bersih (Laba)</div>
+                    <div id="kpi-laba" class="text-xl font-bold text-emerald-600">Rp 0</div>
+                </div>
+            </div>
+
+            <!-- Tabel Riwayat -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800">Riwayat Transaksi Penjualan</h2>
+                    <button onclick="resetRiwayat()" class="text-xs bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 font-medium py-1.5 px-3 rounded-lg transition-colors">
+                        Reset Riwayat Transaksi
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 uppercase text-xs border-b border-slate-200">
+                            <tr>
+                                <th class="p-4">Tanggal</th>
+                                <th class="p-4">Nama Obat</th>
+                                <th class="p-4 text-center">Qty Terjual</th>
+                                <th class="p-4 text-right">Total Penjualan</th>
+                                <th class="p-4 text-right">Keuntungan Bersih</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel-riwayat-body" class="divide-y divide-slate-100">
+                            <!-- Diisi JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="empty-riwayat" class="p-12 text-center text-slate-400 text-sm hidden">
+                    Belum ada riwayat transaksi penjualan.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stokList = JSON.parse(localStorage.getItem('apotek_stok')) || [];
+        let riwayatList = JSON.parse(localStorage.getItem('apotek_riwayat')) || [];
+
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka);
+        }
+
+        function saveData() {
+            localStorage.setItem('apotek_stok', JSON.stringify(stokList));
+            localStorage.setItem('apotek_riwayat', JSON.stringify(riwayatList));
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tab-stok').classList.add('hidden');
+            document.getElementById('tab-transaksi').classList.add('hidden');
+            document.getElementById('tab-riwayat').classList.add('hidden');
+
+            document.getElementById('btn-tab-stok').className = "py-2.5 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors";
+            document.getElementById('btn-tab-transaksi').className = "py-2.5 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors";
+            document.getElementById('btn-tab-riwayat').className = "py-2.5 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-colors";
+
+            if (tab === 'stok') {
+                document.getElementById('tab-stok').classList.remove('hidden');
+                document.getElementById('btn-tab-stok').className = "py-2.5 px-6 font-semibold text-sm border-b-2 border-emerald-600 text-emerald-700 transition-colors";
+                renderStok();
+            } else if (tab === 'transaksi') {
+                document.getElementById('tab-transaksi').classList.remove('hidden');
+                document.getElementById('btn-tab-transaksi').className = "py-2.5 px-6 font-semibold text-sm border-b-2 border-emerald-600 text-emerald-700 transition-colors";
+                updateDropdownObat();
+            } else if (tab === 'riwayat') {
+                document.getElementById('tab-riwayat').classList.remove('hidden');
+                document.getElementById('btn-tab-riwayat').className = "py-2.5 px-6 font-semibold text-sm border-b-2 border-emerald-600 text-emerald-700 transition-colors";
+                renderRiwayat();
+            }
+        }
+
+        // --- MANAJEMEN STOK (CEK DUPLIKASI NAMA OBAT) ---
+        document.getElementById('form-stok').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const namaInput = document.getElementById('stok-nama').value.trim();
+            const jumlahInput = Number(document.getElementById('stok-jumlah').value);
+            const modalInput = Number(document.getElementById('stok-modal').value);
+            const jualInput = Number(document.getElementById('stok-jual').value);
+
+            // Cek apakah obat dengan nama yang sama sudah ada (case-insensitive)
+            let existingObat = stokList.find(item => item.nama.toLowerCase() === namaInput.toLowerCase());
+
+            if (existingObat) {
+                // Jika sudah ada, tambahkan jumlahnya saja dan update harga terbaru jika berubah
+                existingObat.jumlah += jumlahInput;
+                existingObat.modal = modalInput;
+                existingObat.jual = jualInput;
+                alert(`Obat "${existingObat.nama}" sudah ada. Stok berhasil ditambah sebanyak ${jumlahInput} Pcs!`);
+            } else {
+                // Jika belum ada, buat item baru
+                stokList.push({ id: Date.now(), nama: namaInput, jumlah: jumlahInput, modal: modalInput, jual: jualInput });
+                alert(`Obat baru "${namaInput}" berhasil ditambahkan ke gudang!`);
+            }
+
+            saveData();
+            renderStok();
+            this.reset();
+        });
+
+        function renderStok() {
+            const tbody = document.getElementById('tabel-stok-body');
+            const emptyState = document.getElementById('empty-stok');
+            tbody.innerHTML = '';
+
+            if (stokList.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                stokList.forEach((item, index) => {
+                    const badgeColor = item.jumlah === 0 ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700';
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="p-4 font-medium text-slate-800">${item.nama}</td>
+                        <td class="p-4 text-right text-amber-600">${formatRupiah(item.modal)}</td>
+                        <td class="p-4 text-right font-medium text-slate-700">${formatRupiah(item.jual)}</td>
+                        <td class="p-4 text-center"><span class="${badgeColor} px-3 py-1 rounded-full text-xs font-bold">${item.jumlah} Pcs</span></td>
+                        <td class="p-4 text-center">
+                            <button onclick="hapusStok(${index})" class="text-rose-500 hover:text-rose-700 text-xs font-medium">Hapus</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function hapusStok(index) {
+            if (confirm('Hapus obat ini dari daftar gudang?')) {
+                stokList.splice(index, 1);
+                saveData();
+                renderStok();
+            }
+        }
+
+        // --- TRANSAKSI KASIR ---
+        function updateDropdownObat() {
+            const select = document.getElementById('pilih-obat');
+            select.innerHTML = '<option value="">-- Pilih Obat --</option>';
+            stokList.forEach((item, index) => {
+                if (item.jumlah > 0) {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    opt.text = `${item.nama} (Stok: ${item.jumlah} Pcs | Jual: ${formatRupiah(item.jual)})`;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
+        function updateInfoObat() {
+            const index = document.getElementById('pilih-obat').value;
+            const infoDiv = document.getElementById('info-stok-tersedia');
+            if (index !== "") {
+                const obat = stokList[index];
+                infoDiv.innerHTML = `✅ Stok tersedia di gudang: <b>${obat.jumlah} Pcs</b> | Harga Jual: <b>${formatRupiah(obat.jual)}</b>`;
+            } else {
+                infoDiv.innerHTML = `💡 Tips: Pilih obat untuk melihat sisa stok real-time di gudang.`;
+            }
+        }
+
+        document.getElementById('form-transaksi').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const index = document.getElementById('pilih-obat').value;
+            const qtyBeli = Number(document.getElementById('transaksi-qty').value);
+
+            if (index === "") {
+                alert('Silakan pilih obat terlebih dahulu!');
+                return;
+            }
+
+            let obat = stokList[index];
+
+            if (qtyBeli > obat.jumlah) {
+                alert(`Stok tidak cukup! Sisa stok di gudang hanya ${obat.jumlah} Pcs.`);
+                return;
+            }
+
+            // Kurangi stok gudang otomatis (jika habis jadi 0)
+            obat.jumlah -= qtyBeli;
+
+            // Catat ke riwayat
+            const tanggalSekarang = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const totalJual = qtyBeli * obat.jual;
+            const totalModal = qtyBeli * obat.modal;
+            const laba = totalJual - totalModal;
+
+            riwayatList.unshift({
+                tanggal: tanggalSekarang,
+                namaObat: obat.nama,
+                qty: qtyBeli,
+                totalJual,
+                laba
+            });
+
+            saveData();
+            alert(`Transaksi berhasil! Sisa stok ${obat.nama}: ${obat.jumlah} Pcs.`);
+            this.reset();
+            updateDropdownObat();
+            document.getElementById('info-stok-tersedia').innerHTML = `💡 Tips: Pilih obat untuk melihat sisa stok real-time di gudang.`;
+        });
+
+        // --- RIWAYAT & LAPORAN ---
+        function renderRiwayat() {
+            const tbody = document.getElementById('tabel-riwayat-body');
+            const emptyState = document.getElementById('empty-riwayat');
+            tbody.innerHTML = '';
+
+            if (riwayatList.length === 0) {
+                emptyState.classList.remove('hidden');
+                document.getElementById('kpi-penjualan').innerText = formatRupiah(0);
+                document.getElementById('kpi-modal').innerText = formatRupiah(0);
+                document.getElementById('kpi-laba').innerText = formatRupiah(0);
+            } else {
+                emptyState.classList.add('hidden');
+                let totalPenjualanVal = 0;
+                let totalLabaVal = 0;
+                let totalModalVal = 0;
+
+                riwayatList.forEach((item) => {
+                    totalPenjualanVal += item.totalJual;
+                    totalLabaVal += item.laba;
+                    totalModalVal += (item.totalJual - item.laba);
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="p-4 text-slate-500">${item.tanggal}</td>
+                        <td class="p-4 font-medium text-slate-800">${item.namaObat}</td>
+                        <td class="p-4 text-center">${item.qty} Pcs</td>
+                        <td class="p-4 text-right font-medium text-slate-700">${formatRupiah(item.totalJual)}</td>
+                        <td class="p-4 text-right font-semibold text-emerald-600">+${formatRupiah(item.laba)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('kpi-penjualan').innerText = formatRupiah(totalPenjualanVal);
+                document.getElementById('kpi-modal').innerText = formatRupiah(totalModalVal);
+                document.getElementById('kpi-laba').innerText = formatRupiah(totalLabaVal);
+            }
+        }
+
+        function resetRiwayat() {
+            if (confirm('Reset seluruh riwayat transaksi penjualan?')) {
+                riwayatList = [];
+                saveData();
+                renderRiwayat();
+            }
+        }
+
+        // --- EKSPOR EXCEL & PDF ---
+        function exportExcel() {
+            if (stokList.length === 0 && riwayatList.length === 0) {
+                alert('Belum ada data untuk diexport!');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+
+            let dataStok = stokList.map(item => ({
+                "Nama Obat": item.nama,
+                "Harga Modal Satuan": item.modal,
+                "Harga Jual Satuan": item.jual,
+                "Sisa Stok Gudang": item.jumlah
+            }));
+            const wsStok = XLSX.utils.json_to_sheet(dataStok);
+            XLSX.utils.book_append_sheet(wb, wsStok, "Stok Gudang");
+
+            let dataRiwayat = riwayatList.map(item => ({
+                "Tanggal": item.tanggal,
+                "Nama Obat": item.namaObat,
+                "Qty Terjual": item.qty,
+                "Total Penjualan": item.totalJual,
+                "Keuntungan Bersih": item.laba
+            }));
+            const wsRiwayat = XLSX.utils.json_to_sheet(dataRiwayat);
+            XLSX.utils.book_append_sheet(wb, wsRiwayat, "Riwayat Penjualan");
+
+            XLSX.writeFile(wb, "Laporan_Apotek_Sehat_Farma.xlsx");
+        }
+
+        function exportPDF() {
+            if (riwayatList.length === 0) {
+                alert('Belum ada riwayat transaksi penjualan untuk dicetak ke PDF!');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(16);
+            doc.text("Laporan Keuntungan & Penjualan Apotek", 14, 20);
+            doc.setFontSize(10);
+            doc.text("Periode: November 2026", 14, 28);
+
+            let tableData = riwayatList.map(item => [
+                item.tanggal,
+                item.namaObat,
+                item.qty + " Pcs",
+                formatRupiah(item.totalJual),
+                formatRupiah(item.laba)
+            ]);
+
+            doc.autoTable({
+                startY: 35,
+                head: [['Tanggal', 'Nama Obat', 'Terjual', 'Total Penjualan', 'Keuntungan']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [4, 120, 87] }
+            });
+
+            doc.save("Laporan_Penjualan_Apotek.pdf");
+        }
+
+        // Inisialisasi awal
+        renderStok();
+    </script>
+</body>
+</html>
